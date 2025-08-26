@@ -2,6 +2,7 @@
 카테고리 스키마
 """
 from pydantic import BaseModel
+from typing import Optional
 
 class StoreCategoryBase(BaseModel):
     categoryName: str
