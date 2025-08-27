@@ -8,7 +8,7 @@ from app.models.store_feed import StoreFeed
 from app.models.product_feed import ProductFeed
 from app.models.event_feed import EventFeed
 from app.models.feed_like import FeedLike
-from app.schemas.feed import FeedCreate
+import datetime
 
 def get_feed(db: Session, feed_id: int):
     return db.query(Feed).filter(Feed.feedid == feed_id).first()
@@ -41,63 +41,74 @@ def get_feeds_by_market(db: Session, market_id: int, promo_kind: str = None, ski
 
     return query.order_by(Feed.created_at.desc()).offset(skip).limit(limit).all()
 
-def create_feed(db: Session, feed: FeedCreate):
-    """기본 피드 생성"""
+def create_feed_with_details(
+    db: Session,
+    feed_type: str,
+    media_type: str,
+    store_id: int,
+    feed_body: str,
+    feed_media_url: str,
+    # Store-specific
+    store_description: str = None,
+    store_image_url: str = None,
+    # Product-specific
+    product_name: str = None,
+    category_id: int = None,
+    product_description: str = None,
+    product_image_url: str = None,
+    # Event-specific
+    event_name: str = None,
+    event_description: str = None,
+    event_start_at: datetime.datetime = None,
+    event_end_at: datetime.datetime = None,
+    event_image_url: str = None,
+):
+    """
+    피드와 세부 정보를 한 번에 생성합니다.
+    """
+    # 1. 기본 피드 생성
     db_feed = Feed(
-        storeid=feed.storeid,
-        promoKind=feed.promoKind,
-        mediaType=feed.mediaType,
-        prompt=feed.prompt,
-        mediaUrl=feed.mediaUrl,
-        body=feed.body
+        storeid=store_id,
+        promoKind=feed_type,
+        mediaType=media_type,
+        mediaUrl=feed_media_url,
+        body=feed_body,
+        prompt=""
     )
     db.add(db_feed)
+    db.flush()
+
+    # 2. 피드 타입에 따라 세부 정보 생성
+    if feed_type == "store":
+        db_store_feed = StoreFeed(
+            feedid=db_feed.feedid,
+            description=store_description,
+            imgUrl=store_image_url
+        )
+        db.add(db_store_feed)
+    elif feed_type == "product":
+        db_product_feed = ProductFeed(
+            feedid=db_feed.feedid,
+            productName=product_name,
+            description=product_description,
+            imgUrl=product_image_url,
+            productCategoryID=category_id
+        )
+        db.add(db_product_feed)
+    elif feed_type == "event":
+        db_event_feed = EventFeed(
+            feedid=db_feed.feedid,
+            eventName=event_name,
+            description=event_description,
+            imgUrl=event_image_url,
+            start_at=event_start_at,
+            end_at=event_end_at
+        )
+        db.add(db_event_feed)
+
     db.commit()
     db.refresh(db_feed)
     return db_feed
-
-def create_store_feed_detail(db: Session, feed_id: int, description: str = None, imgUrl: str = ""):
-    """상점 피드 상세 정보 생성"""
-    db_store_feed = StoreFeed(
-        feedid=feed_id,
-        description=description,
-        imgUrl=imgUrl
-    )
-    db.add(db_store_feed)
-    db.commit()
-    db.refresh(db_store_feed)
-    return db_store_feed
-
-def create_product_feed_detail(db: Session, feed_id: int, product_name: str, 
-                             description: str, imgUrl: str, category_id: int):
-    """상품 피드 상세 정보 생성"""
-    db_product_feed = ProductFeed(
-        feedid=feed_id,
-        productName=product_name,
-        description=description,
-        imgUrl=imgUrl,
-        productCategoryID=category_id
-    )
-    db.add(db_product_feed)
-    db.commit()
-    db.refresh(db_product_feed)
-    return db_product_feed
-
-def create_event_feed_detail(db: Session, feed_id: int, event_name: str,
-                           description: str, imgUrl: str, start_at, end_at):
-    """이벤트 피드 상세 정보 생성"""
-    db_event_feed = EventFeed(
-        feedid=feed_id,
-        eventName=event_name,
-        description=description,
-        imgUrl=imgUrl,
-        start_at=start_at,
-        end_at=end_at
-    )
-    db.add(db_event_feed)
-    db.commit()
-    db.refresh(db_event_feed)
-    return db_event_feed
 
 def toggle_feed_like(db: Session, user_id: int, feed_id: int):
     """피드 좋아요 토글"""

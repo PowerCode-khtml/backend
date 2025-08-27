@@ -18,7 +18,7 @@ class HostLogin(BaseModel):
     password: str
 
 class HostResponse(HostBase):
-    hostID: int
+    hostid: int
     created_at: datetime
     
     class Config:

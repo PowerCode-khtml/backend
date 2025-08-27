@@ -20,7 +20,7 @@ class FeedBase(BaseModel):
     mediaType: MediaTypeEnum
     prompt: Optional[str] = None  # AI 이미지 생성용
     mediaUrl: str
-    body: str
+    body: Optional[str] = None
 
 class FeedCreate(FeedBase):
     storeid: int

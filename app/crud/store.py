@@ -12,7 +12,7 @@ def get_stores(db: Session, skip: int = 0, limit: int = 100):
     return db.query(Store).offset(skip).limit(limit).all()
 
 def get_stores_by_host(db: Session, host_id: int):
-    return db.query(Store).filter(Store.hostID == host_id).all()
+    return db.query(Store).filter(Store.hostid == host_id).all()
 
 def get_stores_by_market(db: Session, market_id: int):
     return db.query(Store).filter(Store.marketid == market_id).all()
@@ -24,7 +24,7 @@ def create_store(db: Session, store: StoreCreate):
     db_store = Store(
         marketid=store.marketid,
         categoryid=store.categoryid,
-        hostID=store.hostID,
+        hostid=store.hostid,
         storeName=store.storeName,
         tel=store.tel,
         dayOpenTime=store.dayOpenTime,

@@ -11,7 +11,7 @@ class Store(Base):
     storeid = Column(BigInteger, primary_key=True, autoincrement=True)
     marketid = Column(BigInteger, ForeignKey("market.marketid"), nullable=False)
     categoryid = Column(BigInteger, ForeignKey("storecategory.storeCategoryid"), nullable=False)
-    hostID = Column(BigInteger, ForeignKey("host.hostID"), nullable=False)
+    hostid = Column(BigInteger, ForeignKey("host.hostid"), nullable=False, unique=True)
     storeName = Column(String(100), nullable=False)
     tel = Column(String(20), nullable=True)
     dayOpenTime = Column(Time, nullable=True)
@@ -19,11 +19,12 @@ class Store(Base):
     weekendOpenTime = Column(Time, nullable=True)
     weekendCloseTime = Column(Time, nullable=True)
     address = Column(String(255), nullable=True)
-    description = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
     
     # 관계 정의
     market = relationship("Market", back_populates="stores")
     category = relationship("StoreCategory", back_populates="stores")
-    host = relationship("Host", back_populates="stores")
+    host = relationship("Host", back_populates="store")
     feeds = relationship("Feed", back_populates="store")
     subscriptions = relationship("Subscription", back_populates="store")
+    payment_methods = relationship("StorePaymentMethod", back_populates="store")

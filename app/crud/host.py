@@ -7,7 +7,7 @@ from app.schemas.host import HostCreate
 from app.services.auth import AuthService
 
 def get_host(db: Session, host_id: int):
-    return db.query(Host).filter(Host.hostID == host_id).first()
+    return db.query(Host).filter(Host.hostid == host_id).first()
 
 def get_host_by_email(db: Session, email: str):
     return db.query(Host).filter(Host.email == email).first()

@@ -25,7 +25,7 @@ class Feed(Base):
     mediaType = Column(Enum(MediaType), nullable=False)
     prompt = Column(Text, nullable=True)  # AI 이미지 생성용 프롬프트
     mediaUrl = Column(String(255), nullable=False)
-    body = Column(Text, nullable=False)
+    body = Column(Text, nullable=True)
     created_at = Column(DateTime, default=func.now(), nullable=False)
     
     # 관계 정의

@@ -15,8 +15,8 @@ class ImageGeneratorService:
         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
         # 디렉토리 설정
-        self.upload_dir = "/home/ubuntu/goinfre/MarketCloud/server/backend/uploads"
-        self.generated_dir = "/home/ubuntu/goinfre/MarketCloud/server/backend/generated"
+        self.upload_dir = "./uploads"
+        self.generated_dir = "./generated"
         
         # 디렉토리 생성
         os.makedirs(self.upload_dir, exist_ok=True)

@@ -8,8 +8,8 @@ from app.database import Base
 class PaymentMethod(Base):
     __tablename__ = "paymentMethod"
     
-    payentMethodid = Column(Integer, primary_key=True, autoincrement=True)
-    paymentMethodName = Column(String(30), nullable=False)
+    paymentMethodid = Column(Integer, primary_key=True, autoincrement=True)
+    paymentMethodName = Column(String(30), nullable=False, unique=True)
     
     # 관계 정의
     store_methods = relationship("StorePaymentMethod", back_populates="payment_method")

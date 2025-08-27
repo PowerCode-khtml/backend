@@ -17,20 +17,20 @@ class StoreCategoryResponse(StoreCategoryBase):
         from_attributes = True
 
 class ProductCategoryBase(BaseModel):
-    productCategoryName: str
+    categoryName: str
 
 class ProductCategoryCreate(ProductCategoryBase):
     pass
 
 class ProductCategoryResponse(ProductCategoryBase):
-    productCategoryid: int
+    productCategoryID: int
     
     class Config:
         from_attributes = True
 
 class MarketBase(BaseModel):
-    marketName: Optional[str] = None
-    address: Optional[str] = None
+    marketName: str
+    address: str
 
 class MarketCreate(MarketBase):
     pass

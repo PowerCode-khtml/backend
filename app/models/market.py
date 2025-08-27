@@ -9,8 +9,8 @@ class Market(Base):
     __tablename__ = "market"
     
     marketid = Column(BigInteger, primary_key=True, autoincrement=True)
-    marketName = Column(String(50), nullable=True)
-    address = Column(String(255), nullable=True)
+    marketName = Column(String(50), nullable=False)
+    address = Column(String(255), nullable=False)
     
     # 관계 정의
     stores = relationship("Store", back_populates="market")

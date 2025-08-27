@@ -40,13 +40,13 @@ def create_store_category(db: Session, category: StoreCategoryCreate):
 
 # Product Category CRUD
 def get_product_category(db: Session, category_id: int):
-    return db.query(ProductCategory).filter(ProductCategory.productCategoryid == category_id).first()
+    return db.query(ProductCategory).filter(ProductCategory.productCategoryID == category_id).first()
 
 def get_product_categories(db: Session):
     return db.query(ProductCategory).all()
 
 def create_product_category(db: Session, category: ProductCategoryCreate):
-    db_category = ProductCategory(productCategoryName=category.productCategoryName)
+    db_category = ProductCategory(categoryName=category.categoryName)
     db.add(db_category)
     db.commit()
     db.refresh(db_category)

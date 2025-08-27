@@ -7,20 +7,106 @@ from fastapi import (
 )
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import datetime
 
 from app.database import get_db
 from app.schemas.feed import FeedCreate, FeedResponse
 from app.schemas.review import ReviewCreate, ReviewResponse
-from app.schemas.interaction import FeedLikeCreate
+from app.schemas.interaction import FeedLikeCreate, FeedLikeToggleResponse, FeedLikesCountResponse
 from app.schemas.image import GeneratedFeedMediaResponse, FeedMediaResponseData
+from app.schemas.base_response import GenericResponse
 from app.crud import feed as feed_crud, review as review_crud, store as store_crud
 from app.services.image_generator import ImageGeneratorService
 
 router = APIRouter(prefix="/feed", tags=["feeds"])
 
-# --- 기존 피드 기능 ---
+# --- 피드 기능 ---
 
-@router.get("/{market_id}", response_model=List[FeedResponse])
+@router.post("/", response_model=GenericResponse[FeedResponse])
+def create_feed(
+    db: Session = Depends(get_db),
+    feedType: str = Form(...),
+    mediaType: str = Form(...),
+    storeId: int = Form(...),
+    feedMediaUrl: str = Form(...),
+    feedBody: str = Form(...),
+    # Store-specific
+    storeDescription: Optional[str] = Form(None),
+    storeImage: Optional[UploadFile] = File(None),
+    # Product-specific
+    productName: Optional[str] = Form(None),
+    categoryId: Optional[int] = Form(None),
+    productDescription: Optional[str] = Form(None),
+    productImage: Optional[UploadFile] = File(None),
+    # Event-specific
+    eventName: Optional[str] = Form(None),
+    eventDescription: Optional[str] = Form(None),
+    eventStartAt: Optional[datetime.datetime] = Form(None),
+    eventEndAt: Optional[datetime.datetime] = Form(None),
+    eventImage: Optional[UploadFile] = File(None),
+):
+    """새로운 피드를 유형에 따라 생성합니다."""
+    # TODO: 파일 처리 로직 추가 (S3 업로드 등)
+    store_image_url = ""
+    product_image_url = ""
+    event_image_url = ""
+
+    if storeImage:
+        # 예시: store_image_url = await save_file(storeImage)
+        store_image_url = f"/uploads/{storeImage.filename}"
+    if productImage:
+        product_image_url = f"/uploads/{productImage.filename}"
+    if eventImage:
+        event_image_url = f"/uploads/{eventImage.filename}"
+
+    # feedType에 따라 필수 파라미터 검증
+    if feedType == "store":
+        if not all([storeDescription, storeImage]):
+            return GenericResponse.error_response(
+                error_message="'store' 타입에 필요한 필드가 누락되었습니다: storeDescription, storeImage",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+    elif feedType == "product":
+        if not all([productName, categoryId, productDescription, productImage]):
+            return GenericResponse.error_response(
+                error_message="'product' 타입에 필요한 필드가 누락되었습니다: productName, categoryId, productDescription, productImage",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+    elif feedType == "event":
+        if not all([eventName, eventDescription, eventStartAt, eventEndAt, eventImage]):
+            return GenericResponse.error_response(
+                error_message="'event' 타입에 필요한 필드가 누락되었습니다: eventName, eventDescription, eventStartAt, eventEndAt, eventImage",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+    else:
+        return GenericResponse.error_response(
+            error_message="잘못된 'feedType'입니다. 'store', 'product', 'event' 중 하나여야 합니다.",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    db_feed = feed_crud.create_feed_with_details(
+        db=db,
+        feed_type=feedType,
+        media_type=mediaType,
+        store_id=storeId,
+        feed_body=feedBody,
+        feed_media_url=feedMediaUrl,
+        store_description=storeDescription,
+        store_image_url=store_image_url,
+        product_name=productName,
+        category_id=categoryId,
+        product_description=productDescription,
+        product_image_url=product_image_url,
+        event_name=eventName,
+        event_description=eventDescription,
+        event_start_at=eventStartAt,
+        event_end_at=eventEndAt,
+        event_image_url=event_image_url,
+    )
+    
+    return GenericResponse.success_response(db_feed)
+
+@router.get("/{market_id}", response_model=GenericResponse[List[FeedResponse]])
 def get_feeds_by_market(
     market_id: int,
     skip: int = 0, 
@@ -29,17 +115,21 @@ def get_feeds_by_market(
     db: Session = Depends(get_db)
 ):
     """특정 시장의 피드 목록 조회"""
-    return feed_crud.get_feeds_by_market(db, market_id=market_id, promo_kind=promo_kind, skip=skip, limit=limit)
+    feeds = feed_crud.get_feeds_by_market(db, market_id=market_id, promo_kind=promo_kind, skip=skip, limit=limit)
+    return GenericResponse.success_response(feeds)
 
-@router.get("/{feed_id}", response_model=FeedResponse)
+@router.get("/{feed_id}", response_model=GenericResponse[FeedResponse])
 def get_feed(feed_id: int, db: Session = Depends(get_db)):
     """특정 피드 상세 조회"""
     feed = feed_crud.get_feed(db, feed_id=feed_id)
     if feed is None:
-        raise HTTPException(status_code=404, detail="피드를 찾을 수 없습니다")
-    return feed
+        return GenericResponse.error_response(
+            error_message="피드를 찾을 수 없습니다",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    return GenericResponse.success_response(feed)
 
-@router.get("/stores/{store_id}", response_model=List[FeedResponse])
+@router.get("/stores/{store_id}", response_model=GenericResponse[List[FeedResponse]])
 def get_feeds_by_store(
     store_id: int, 
     skip: int = 0, 
@@ -47,14 +137,10 @@ def get_feeds_by_store(
     db: Session = Depends(get_db)
 ):
     """특정 상점의 피드 목록"""
-    return feed_crud.get_feeds_by_store(db, store_id=store_id, skip=skip, limit=limit)
+    feeds = feed_crud.get_feeds_by_store(db, store_id=store_id, skip=skip, limit=limit)
+    return GenericResponse.success_response(feeds)
 
-@router.post("/", response_model=FeedResponse)
-def create_feed(feed: FeedCreate, db: Session = Depends(get_db)):
-    """새 피드 생성"""
-    return feed_crud.create_feed(db=db, feed=feed)
-
-@router.post("/{feed_id}/like")
+@router.post("/{feed_id}/like", response_model=GenericResponse[FeedLikeToggleResponse])
 def toggle_feed_like(
     feed_id: int,
     user_id: int,  # 해커톤용 단순화 (실제로는 JWT에서 추출)
@@ -63,24 +149,27 @@ def toggle_feed_like(
     """피드 좋아요/좋아요 취소"""
     feed = feed_crud.get_feed(db, feed_id=feed_id)
     if not feed:
-        raise HTTPException(status_code=404, detail="피드를 찾을 수 없습니다")
+        return GenericResponse.error_response(
+            error_message="피드를 찾을 수 없습니다",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
     
     is_liked = feed_crud.toggle_feed_like(db, user_id=user_id, feed_id=feed_id)
     likes_count = feed_crud.get_feed_likes_count(db, feed_id=feed_id)
     
-    return {
-        "success": True,
-        "is_liked": is_liked,
-        "likes_count": likes_count
-    }
+    return GenericResponse.success_response(
+        FeedLikeToggleResponse(is_liked=is_liked, likes_count=likes_count)
+    )
 
-@router.get("/{feed_id}/likes")
+@router.get("/{feed_id}/likes", response_model=GenericResponse[FeedLikesCountResponse])
 def get_feed_likes(feed_id: int, db: Session = Depends(get_db)):
     """피드 좋아요 수 조회"""
     likes_count = feed_crud.get_feed_likes_count(db, feed_id=feed_id)
-    return {"feed_id": feed_id, "likes_count": likes_count}
+    return GenericResponse.success_response(
+        FeedLikesCountResponse(feed_id=feed_id, likes_count=likes_count)
+    )
 
-@router.post("/{feed_id}/reviews", response_model=ReviewResponse)
+@router.post("/{feed_id}/reviews", response_model=GenericResponse[ReviewResponse])
 def create_feed_review(
     feed_id: int,
     review: ReviewCreate,
@@ -89,12 +178,16 @@ def create_feed_review(
     """피드에 리뷰 작성"""
     feed = feed_crud.get_feed(db, feed_id=feed_id)
     if not feed:
-        raise HTTPException(status_code=404, detail="피드를 찾을 수 없습니다")
+        return GenericResponse.error_response(
+            error_message="피드를 찾을 수 없습니다",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
     
     review.feedid = feed_id
-    return review_crud.create_review(db=db, review=review)
+    created_review = review_crud.create_review(db=db, review=review)
+    return GenericResponse.success_response(created_review)
 
-@router.get("/{feed_id}/reviews", response_model=List[ReviewResponse])
+@router.get("/{feed_id}/reviews", response_model=GenericResponse[List[ReviewResponse]])
 def get_feed_reviews(
     feed_id: int,
     skip: int = 0,
@@ -102,7 +195,8 @@ def get_feed_reviews(
     db: Session = Depends(get_db)
 ):
     """피드의 리뷰 목록 조회"""
-    return review_crud.get_reviews_by_feed(db, feed_id=feed_id, skip=skip, limit=limit)
+    reviews = review_crud.get_reviews_by_feed(db, feed_id=feed_id, skip=skip, limit=limit)
+    return GenericResponse.success_response(reviews)
 
 # --- AI 이미지 생성 기능 ---
 
@@ -139,65 +233,8 @@ async def generate_feed_media(
         success=True
     )
 
-    # if mediaType == "video":
-    #     return GeneratedFeedMediaResponse(
-    #         responseDto=FeedMediaResponseData(),
-    #         error="비디오 생성은 현재 지원되지 않습니다.",
-    #         success=False
-    #     )
-
-    # if feedType == "store":
-    #     if not all([storeId, storeDescription, storeImage]):
-    #         raise HTTPException(status_code=400, detail="'store' 타입에 필요한 필드가 누락되었습니다.")
-    #     store = store_crud.get_store(db, store_id=storeId)
-    #     if not store:
-    #         raise HTTPException(status_code=404, detail="상점을 찾을 수 없습니다.")
-    #     prompt = image_service.create_store_prompt(store.storeName, storeDescription)
-    #     body_text = storeDescription
-    #     input_image = storeImage
-
-    # elif feedType == "product":
-    #     if not all([storeId, productName, categoryId, productDescription, productImage]):
-    #         raise HTTPException(status_code=400, detail="'product' 타입에 필요한 필드가 누락되었습니다.")
-    #     store = store_crud.get_store(db, store_id=storeId)
-    #     if not store:
-    #         raise HTTPException(status_code=404, detail="상점을 찾을 수 없습니다.")
-    #     prompt = image_service.create_product_prompt(productName, productDescription, store.storeName)
-    #     body_text = f"{{productName}}: {{productDescription}}"
-    #     input_image = productImage
-
-    # elif feedType == "event":
-    #     if not all([eventName, eventDescription, eventStartAt, eventEndAt, eventImage]):
-    #         raise HTTPException(status_code=400, detail="'event' 타입에 필요한 필드가 누락되었습니다.")
-    #     prompt = image_service.create_event_prompt(eventName, eventDescription)
-    #     body_text = f"{{eventName}}: {{eventDescription}}"
-    #     input_image = eventImage
-
-    # else:
-    #     raise HTTPException(status_code=400, detail="잘못된 'feedType'입니다.")
-
-    # if input_image:
-    #     await image_service.save_uploaded_file(input_image)
-
-    # generation_result = await image_service.generate_image(prompt)
-
-    # if not generation_result["success"]:
-    #     return GeneratedFeedMediaResponse(
-    #         responseDto=FeedMediaResponseData(),
-    #         error=generation_result.get("error", "이미지 생성에 실패했습니다."),
-    #         success=False
-    #     )
-
-    # return GeneratedFeedMediaResponse(
-    #     responseDto=FeedMediaResponseData(
-    #         feedMediaUrl=generation_result["mediaUrl"],
-    #         feedBody=body_text
-    #     ),
-    #     success=True
-    # )
-
 @router.post("/generate-dev", response_model=GeneratedFeedMediaResponse, tags=["ai-images"])
-async def generate_feed_media(
+async def generate_feed_media_dev(
     db: Session = Depends(get_db),
     feedType: str = Form(...),
     mediaType: str = Form(...),
@@ -214,47 +251,64 @@ async def generate_feed_media(
     productImage: Optional[UploadFile] = File(None),
     eventImage: Optional[UploadFile] = File(None)
 ):
-    """피드 타입에 따라 프롬프트를 생성하고 AI 이미지를 생성합니다."""
+    """피드 타입에 따라 프롬프트를 생성하고 AI 이미지를 생성합니다. (개발용)"""
     prompt = ""
     body_text = ""
     input_image: Optional[UploadFile] = None
 
     if mediaType == "video":
-        return GeneratedFeedMediaResponse(
-            responseDto=FeedMediaResponseData(),
-            error="비디오 생성은 현재 지원되지 않습니다.",
-            success=False
+        return GenericResponse.error_response(
+            error_message="비디오 생성은 현재 지원되지 않습니다.",
+            status_code=status.HTTP_400_BAD_REQUEST
         )
 
     if feedType == "store":
         if not all([storeId, storeDescription, storeImage]):
-            raise HTTPException(status_code=400, detail="'store' 타입에 필요한 필드가 누락되었습니다.")
+            return GenericResponse.error_response(
+                error_message="'store' 타입에 필요한 필드가 누락되었습니다.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
         store = store_crud.get_store(db, store_id=storeId)
         if not store:
-            raise HTTPException(status_code=404, detail="상점을 찾을 수 없습니다.")
+            return GenericResponse.error_response(
+                error_message="상점을 찾을 수 없습니다.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
         prompt = image_service.create_store_prompt(store.storeName, storeDescription)
         body_text = storeDescription
         input_image = storeImage
 
     elif feedType == "product":
         if not all([storeId, productName, categoryId, productDescription, productImage]):
-            raise HTTPException(status_code=400, detail="'product' 타입에 필요한 필드가 누락되었습니다.")
+            return GenericResponse.error_response(
+                error_message="'product' 타입에 필요한 필드가 누락되었습니다.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
         store = store_crud.get_store(db, store_id=storeId)
         if not store:
-            raise HTTPException(status_code=404, detail="상점을 찾을 수 없습니다.")
+            return GenericResponse.error_response(
+                error_message="상점을 찾을 수 없습니다.",
+                status_code=status.HTTP_404_NOT_FOUND
+            )
         prompt = image_service.create_product_prompt(productName, productDescription, store.storeName)
-        body_text = f"{{productName}}: {{productDescription}}"
+        body_text = f"{productName}: {productDescription}"
         input_image = productImage
 
     elif feedType == "event":
         if not all([eventName, eventDescription, eventStartAt, eventEndAt, eventImage]):
-            raise HTTPException(status_code=400, detail="'event' 타입에 필요한 필드가 누락되었습니다.")
+            return GenericResponse.error_response(
+                error_message="'event' 타입에 필요한 필드가 누락되었습니다.",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
         prompt = image_service.create_event_prompt(eventName, eventDescription)
-        body_text = f"{{eventName}}: {{eventDescription}}"
+        body_text = f"{eventName}: {eventDescription}"
         input_image = eventImage
 
     else:
-        raise HTTPException(status_code=400, detail="잘못된 'feedType'입니다.")
+        return GenericResponse.error_response(
+            error_message="잘못된 'feedType'입니다.",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
 
     if input_image:
         await image_service.save_uploaded_file(input_image)
@@ -262,10 +316,9 @@ async def generate_feed_media(
     generation_result = await image_service.generate_image(prompt)
 
     if not generation_result["success"]:
-        return GeneratedFeedMediaResponse(
-            responseDto=FeedMediaResponseData(),
-            error=generation_result.get("error", "이미지 생성에 실패했습니다."),
-            success=False
+        return GenericResponse.error_response(
+            error_message=generation_result.get("error", "이미지 생성에 실패했습니다."),
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )
 
     return GeneratedFeedMediaResponse(
@@ -275,3 +328,9 @@ async def generate_feed_media(
         ),
         success=True
     )
+
+@router.post("/dev", response_model=GenericResponse[FeedResponse])
+def create_feed_dev(feed: FeedCreate, db: Session = Depends(get_db)):
+    """새 피드 생성 (개발용)"""
+    created_feed = feed_crud.create_feed(db=db, feed=feed)
+    return GenericResponse.success_response(created_feed)

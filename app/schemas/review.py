@@ -1,14 +1,14 @@
 """
 리뷰 스키마
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
 class ReviewBase(BaseModel):
     content: str
     imgUrl: Optional[str] = None
-    rating: int  # 1-5
+    rating: int = Field(..., ge=1, le=5)  # 1-5
 
 class ReviewCreate(ReviewBase):
     feedid: int

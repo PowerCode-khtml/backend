@@ -13,12 +13,12 @@ class StoreBase(BaseModel):
     weekendOpenTime: Optional[time] = None
     weekendCloseTime: Optional[time] = None
     address: Optional[str] = None
-    description: str
+    description: Optional[str] = None
 
 class StoreCreate(StoreBase):
     marketid: int
     categoryid: int
-    hostID: int
+    hostid: int
 
 class StoreUpdate(BaseModel):
     storeName: Optional[str] = None
@@ -34,7 +34,7 @@ class StoreResponse(StoreBase):
     storeid: int
     marketid: int
     categoryid: int
-    hostID: int
+    hostid: int
     
     class Config:
         from_attributes = True

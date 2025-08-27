@@ -12,7 +12,7 @@ class ProductFeed(Base):
     productName = Column(String(100), nullable=False)
     description = Column(Text, nullable=False)
     imgUrl = Column(String(255), nullable=False)
-    productCategoryID = Column(BigInteger, ForeignKey("productcategory.productCategoryid"), nullable=False)
+    productCategoryID = Column(BigInteger, ForeignKey("productcategory.productCategoryID"), nullable=False)
     
     # 관계 정의
     feed = relationship("Feed", back_populates="product_feed")

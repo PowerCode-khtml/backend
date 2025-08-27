@@ -15,6 +15,14 @@ class FeedLikeResponse(BaseModel):
     class Config:
         from_attributes = True
 
+class FeedLikeToggleResponse(BaseModel):
+    is_liked: bool
+    likes_count: int
+
+class FeedLikesCountResponse(BaseModel):
+    feed_id: int
+    likes_count: int
+
 # 구독
 class SubscriptionCreate(BaseModel):
     userid: int
