@@ -5,14 +5,18 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import os
+from dotenv import load_dotenv
 
-from app.database import engine
+# .env 파일 로드
+load_dotenv()
+
+from app.database import Base, engine
 from app.models import *  # 모든 모델 import
 from app.routers import (
     auth_router,
     feeds_router,
     stores_router,
-    images_router, 
+    # images_router, 
     users_router
 )
 
@@ -46,7 +50,7 @@ app.mount("/generated", StaticFiles(directory="generated"), name="generated")
 app.include_router(auth_router, prefix="/api")
 app.include_router(feeds_router, prefix="/api")  # 핵심 기능
 app.include_router(stores_router, prefix="/api")
-app.include_router(images_router, prefix="/api")  # AI 특별 기능
+# app.include_router(images_router, prefix="/api")  # AI 특별 기능
 app.include_router(users_router, prefix="/api")
 
 # 홈 엔드포인트
@@ -65,9 +69,8 @@ def read_root():
         },
         "endpoints": {
             "auth": "/api/auth",
-            "feeds": "/api/feeds",  # 해커톤 핵심
+            "feeds": "/api/feed",  # 해커톤 핵심
             "stores": "/api/stores",
-            "ai_images": "/api/images",  # AI 특별 기능
             "users": "/api/users"
         }
     }

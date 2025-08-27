@@ -3,6 +3,7 @@
 """
 from sqlalchemy.orm import Session
 from app.models.feed import Feed
+from app.models.store import Store
 from app.models.store_feed import StoreFeed
 from app.models.product_feed import ProductFeed
 from app.models.event_feed import EventFeed
@@ -20,6 +21,25 @@ def get_feeds_by_store(db: Session, store_id: int, skip: int = 0, limit: int = 5
 
 def get_feeds_by_type(db: Session, promo_kind: str, skip: int = 0, limit: int = 50):
     return db.query(Feed).filter(Feed.promoKind == promo_kind).order_by(Feed.created_at.desc()).offset(skip).limit(limit).all()
+
+def get_feeds_by_market(db: Session, market_id: int, promo_kind: str = None, skip: int = 0, limit: int = 50):
+    """
+    특정 시장에 속한 모든 상점의 피드를 가져옵니다.
+    """
+    # 1. market_id에 해당하는 store_id 목록을 가져옵니다.
+    store_ids = db.query(Store.storeid).filter(Store.marketid == market_id).all()
+    store_ids = [s[0] for s in store_ids]
+
+    if not store_ids:
+        return []
+
+    # 2. 해당 store_id 목록에 포함되는 피드를 조회합니다.
+    query = db.query(Feed).filter(Feed.storeid.in_(store_ids))
+
+    if promo_kind:
+        query = query.filter(Feed.promoKind == promo_kind)
+
+    return query.order_by(Feed.created_at.desc()).offset(skip).limit(limit).all()
 
 def create_feed(db: Session, feed: FeedCreate):
     """기본 피드 생성"""

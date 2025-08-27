@@ -12,7 +12,7 @@ from .feed import (
 )
 from .review import ReviewCreate, ReviewResponse
 from .interaction import FeedLikeCreate, FeedLikeResponse, SubscriptionCreate, SubscriptionResponse
-from .image import ImageGenerationRequest, ImageGenerationResponse, QuickPosterRequest
+from .image import GeneratedFeedMediaResponse
 from .category import (
     StoreCategoryCreate, StoreCategoryResponse,
     ProductCategoryCreate, ProductCategoryResponse,
@@ -40,7 +40,7 @@ __all__ = [
     "SubscriptionCreate", "SubscriptionResponse",
     
     # AI Image Generation (특별 기능)
-    "ImageGenerationRequest", "ImageGenerationResponse", "QuickPosterRequest",
+    "GeneratedFeedMediaResponse",
     
     # Categories
     "StoreCategoryCreate", "StoreCategoryResponse",
