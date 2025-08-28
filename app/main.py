@@ -68,7 +68,7 @@ def read_root():
             "reviews": "리뷰 시스템"
         },
         "endpoints": {
-            "auth": "/api/auth",
+            "auth": "/api",
             "feeds": "/api/feed",  # 해커톤 핵심
             "stores": "/api/stores",
             "users": "/api/users"

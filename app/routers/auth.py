@@ -14,10 +14,10 @@ from app.schemas.base_response import GenericResponse
 from app.crud import user as user_crud, host as host_crud
 from app.services.auth import AuthService
 
-router = APIRouter(prefix="/auth", tags=["authentication"])
+router = APIRouter(prefix="/user", tags=["authentication"])
 
 # 사용자 회원가입
-@router.post("/users/register", response_model=GenericResponse[UserResponse])
+@router.post("/register", response_model=GenericResponse[UserResponse])
 def register_user(user: UserCreate, db: Session = Depends(get_db)):
     """사용자 회원가입"""
     # 이메일 중복 체크
@@ -32,7 +32,7 @@ def register_user(user: UserCreate, db: Session = Depends(get_db)):
     return GenericResponse.success_response(created_user)
 
 # 사용자 로그인
-@router.post("/users/login", response_model=GenericResponse[Token])
+@router.post("/login", response_model=GenericResponse[Token])
 def login_user(user_login: UserLogin, db: Session = Depends(get_db)):
     """사용자 로그인"""
     user = user_crud.authenticate_user(db, user_login.email, user_login.password)

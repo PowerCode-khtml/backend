@@ -8,7 +8,6 @@ from datetime import datetime
 class UserBase(BaseModel):
     email: EmailStr
     name: str
-    imgUrl: Optional[str] = None
 
 class UserCreate(UserBase):
     password: str

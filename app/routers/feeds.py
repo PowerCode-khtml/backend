@@ -27,7 +27,7 @@ def create_feed(
     db: Session = Depends(get_db),
     feedType: str = Form(...),
     mediaType: str = Form(...),
-    storeId: int = Form(...),
+    hostId: int = Form(...),
     feedMediaUrl: str = Form(...),
     feedBody: str = Form(...),
     # Store-specific
@@ -50,6 +50,14 @@ def create_feed(
     store_image_url = ""
     product_image_url = ""
     event_image_url = ""
+
+    stores = store_crud.get_stores_by_host(db, host_id=hostId)
+    if not stores:
+        return GenericResponse.error_response(
+            error_message="상점을 찾을 수 없습니다.",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    storeId = stores[0].storeid
 
     if storeImage:
         # 예시: store_image_url = await save_file(storeImage)
@@ -207,7 +215,7 @@ async def generate_feed_media(
     db: Session = Depends(get_db),
     feedType: str = Form(...),
     mediaType: str = Form(...),
-    storeId: Optional[int] = Form(None),
+    hostId: Optional[int] = Form(None),
     storeDescription: Optional[str] = Form(None),
     productName: Optional[str] = Form(None),
     categoryId: Optional[int] = Form(None),
@@ -238,7 +246,7 @@ async def generate_feed_media_dev(
     db: Session = Depends(get_db),
     feedType: str = Form(...),
     mediaType: str = Form(...),
-    storeId: Optional[int] = Form(None),
+    hostId: Optional[int] = Form(None),
     storeDescription: Optional[str] = Form(None),
     productName: Optional[str] = Form(None),
     categoryId: Optional[int] = Form(None),
@@ -263,33 +271,35 @@ async def generate_feed_media_dev(
         )
 
     if feedType == "store":
-        if not all([storeId, storeDescription, storeImage]):
+        if not all([hostId, storeDescription, storeImage]):
             return GenericResponse.error_response(
                 error_message="'store' 타입에 필요한 필드가 누락되었습니다.",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
-        store = store_crud.get_store(db, store_id=storeId)
-        if not store:
+        stores = store_crud.get_stores_by_host(db, host_id=hostId)
+        if not stores:
             return GenericResponse.error_response(
                 error_message="상점을 찾을 수 없습니다.",
                 status_code=status.HTTP_404_NOT_FOUND
             )
+        store = stores[0]
         prompt = image_service.create_store_prompt(store.storeName, storeDescription)
         body_text = storeDescription
         input_image = storeImage
 
     elif feedType == "product":
-        if not all([storeId, productName, categoryId, productDescription, productImage]):
+        if not all([hostId, productName, categoryId, productDescription, productImage]):
             return GenericResponse.error_response(
                 error_message="'product' 타입에 필요한 필드가 누락되었습니다.",
                 status_code=status.HTTP_400_BAD_REQUEST
             )
-        store = store_crud.get_store(db, store_id=storeId)
-        if not store:
+        stores = store_crud.get_stores_by_host(db, host_id=hostId)
+        if not stores:
             return GenericResponse.error_response(
                 error_message="상점을 찾을 수 없습니다.",
                 status_code=status.HTTP_404_NOT_FOUND
             )
+        store = stores[0]
         prompt = image_service.create_product_prompt(productName, productDescription, store.storeName)
         body_text = f"{productName}: {productDescription}"
         input_image = productImage
