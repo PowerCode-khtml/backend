@@ -61,6 +61,7 @@ def get_store_rankings(db: Session, limit: int = 10):
 def get_product_rankings(db: Session, limit: int = 10):
     sql_query = text(f"""
 	    SELECT
+	        bp.feedid AS feedId,
 	        bp.mediaUrl,
 	        bp.productName,
 	        bp.like_count,
@@ -98,6 +99,7 @@ def get_product_rankings(db: Session, limit: int = 10):
 def get_event_rankings(db: Session, limit: int = 10):
     sql_query = text(f"""
     SELECT
+        be.feedid AS feedId,
         be.eventName,
         be.imgUrl,
         be.like_count,

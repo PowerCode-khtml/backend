@@ -12,6 +12,7 @@ class StoreRankResponse(BaseModel):
 
 class ProductRankInfo(BaseModel):
     rank: int
+    feedId: int
     mediaUrl: str | None
     productName: str
     like_count: int
@@ -21,6 +22,7 @@ class ProductRankResponse(BaseModel):
 
 class EventRankInfo(BaseModel):
     rank: int
+    feedId: int
     eventName: str
     imgUrl: str | None
     like_count: int
