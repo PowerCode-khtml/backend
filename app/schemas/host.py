@@ -8,7 +8,6 @@ from datetime import datetime
 class HostBase(BaseModel):
     email: EmailStr
     name: str
-    imgUrl: Optional[str] = None
 
 class HostCreate(HostBase):
     password: str

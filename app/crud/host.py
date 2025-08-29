@@ -21,7 +21,6 @@ def create_host(db: Session, host: HostCreate):
         email=host.email,
         name=host.name,
         password=hashed_password,
-        imgUrl=host.imgUrl
     )
     db.add(db_host)
     db.commit()
