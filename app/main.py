@@ -21,7 +21,8 @@ from app.routers import (
     # images_router, 
     users_router,
     markets_router,
-    trends_router
+    trends_router,
+    videos_router
 )
 
 # 데이터베이스 테이블 생성
@@ -61,6 +62,7 @@ app.include_router(stores_router, prefix="/api")
 app.include_router(users_router, prefix="/api")
 app.include_router(markets_router, prefix="/api")
 app.include_router(trends_router, prefix="/api")
+app.include_router(videos_router, prefix="/api")
 
 # 홈 엔드포인트
 @app.get("/")
