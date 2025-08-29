@@ -106,30 +106,16 @@ def subscribe_store(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    # 사용자 존재 여부 확인 (선택 사항, 필요시 추가)
-    # user = user_crud.get_user(db, user_id=user_sub.userId)
-    # if not user:
-    #     return GenericResponse.error_response(
-    #         error_message="사용자를 찾을 수 없습니다",
-    #         status_code=status.HTTP_404_NOT_FOUND
-    #     )
-
-    # 이미 구독 중인지 확인 (선택 사항, 필요시 추가)
-    # existing_subscription = db.query(Subscription).filter(
-    #     Subscription.userid == user_sub.userId,
-    #     Subscription.storeid == store_id
-    # ).first()
-    # if existing_subscription:
-    #     return GenericResponse.error_response(
-    #         error_message="이미 구독 중입니다",
-    #         status_code=status.HTTP_409_CONFLICT
-    #     )
-
     try:
-        store_crud.create_subscription(db, user_id=user_sub.userId, store_id=store_id)
-        return GenericResponse.success_response(MessageResponse(message="상점 구독 성공"))
+        existing_subscription = store_crud.get_subscription(db, user_id=user_sub.userId, store_id=store_id)
+        if existing_subscription:
+            store_crud.delete_subscription(db, user_id=user_sub.userId, store_id=store_id)
+            return GenericResponse.success_response(MessageResponse(message="상점 구독 취소 성공"))
+        else:
+            store_crud.create_subscription(db, user_id=user_sub.userId, store_id=store_id)
+            return GenericResponse.success_response(MessageResponse(message="상점 구독 성공"))
     except Exception as e:
         return GenericResponse.error_response(
-            error_message=f"상점 구독 실패: {str(e)}",
+            error_message=f"상점 구독/취소 실패: {str(e)}",
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
         )

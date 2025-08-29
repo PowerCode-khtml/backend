@@ -122,3 +122,19 @@ def create_subscription(db: Session, user_id: int, store_id: int):
     db.commit()
     db.refresh(db_subscription)
     return db_subscription
+
+def get_subscription(db: Session, user_id: int, store_id: int):
+    return db.query(Subscription).filter(
+        Subscription.userid == user_id,
+        Subscription.storeid == store_id
+    ).first()
+
+def delete_subscription(db: Session, user_id: int, store_id: int):
+    db_subscription = db.query(Subscription).filter(
+        Subscription.userid == user_id,
+        Subscription.storeid == store_id
+    ).first()
+    if db_subscription:
+        db.delete(db_subscription)
+        db.commit()
+    return db_subscription
