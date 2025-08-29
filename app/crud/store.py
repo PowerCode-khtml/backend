@@ -75,6 +75,11 @@ def get_store_profile(db: Session, store_id: int, host_id: int):
 
     is_my_store = (store.hostid == host_id)
 
+    is_subscribed = db.query(Subscription).filter(
+        Subscription.userid == host_id,
+        Subscription.storeid == store_id
+    ).first() is not None
+
     feeds_query = db.query(
         Feed.mediaUrl,
         func.coalesce(
@@ -84,13 +89,7 @@ def get_store_profile(db: Session, store_id: int, host_id: int):
         ).label("feedName"),
         func.count(FeedLike.userid).label("like_count"),
         Feed.promoKind.label("feedType")
-    ).outerjoin(StoreFeed, Feed.feedid == StoreFeed.feedid)\
-    .outerjoin(ProductFeed, Feed.feedid == ProductFeed.feedid)\
-    .outerjoin(EventFeed, Feed.feedid == EventFeed.feedid)\
-    .outerjoin(FeedLike, Feed.feedid == FeedLike.feedid)\
-    .filter(Feed.storeid == store_id)\
-    .group_by(Feed.feedid, StoreFeed.description, ProductFeed.productName, EventFeed.eventName)\
-    .all()
+    ).outerjoin(StoreFeed, Feed.feedid == StoreFeed.feedid).outerjoin(ProductFeed, Feed.feedid == ProductFeed.feedid).outerjoin(EventFeed, Feed.feedid == EventFeed.feedid).outerjoin(FeedLike, Feed.feedid == FeedLike.feedid).filter(Feed.storeid == store_id).group_by(Feed.feedid, StoreFeed.description, ProductFeed.productName, EventFeed.eventName).all()
 
     feeds = [
         {
@@ -106,6 +105,7 @@ def get_store_profile(db: Session, store_id: int, host_id: int):
         "followerCount": follower_count,
         "totalLikedCount": total_liked_count,
         "isMyStore": is_my_store,
+        "isSubscribed": is_subscribed,
         "storeDescript": store.description,
         "storeAddress": store.address,
         "storePhoneNumber": store.tel,

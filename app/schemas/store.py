@@ -54,6 +54,7 @@ class StoreProfileResponse(BaseModel):
     followerCount: int
     totalLikedCount: int
     isMyStore: bool
+    isSubscribed: bool
     storeDescript: Optional[str] = None
     storeAddress: Optional[str] = None
     storePhoneNumber: Optional[str] = None
