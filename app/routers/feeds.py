@@ -11,7 +11,7 @@ import datetime
 
 from app.database import get_db
 from app.schemas.feed import FeedCreate, FeedResponse
-from app.schemas.review import ReviewCreate, ReviewResponse
+from app.schemas.review import ReviewCreate, ReviewResponse, ReviewListResponse
 from app.schemas.interaction import FeedLikeCreate, FeedLikeToggleResponse, FeedLikesCountResponse
 from app.schemas.image import GeneratedFeedMediaResponse, FeedMediaResponseData
 from app.schemas.base_response import GenericResponse
@@ -195,16 +195,27 @@ def create_feed_review(
     created_review = review_crud.create_review(db=db, review=review)
     return GenericResponse.success_response(created_review)
 
-@router.get("/{feed_id}/reviews", response_model=GenericResponse[List[ReviewResponse]])
+@router.get("/{feed_id}/reviews", response_model=GenericResponse[ReviewListResponse])
 def get_feed_reviews(
     feed_id: int,
     skip: int = 0,
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    """피드의 리뷰 목록 조회"""
+    """피드의 리뷰 목록과 평균 평점 조회"""
+    # 리뷰 목록 조회
     reviews = review_crud.get_reviews_by_feed(db, feed_id=feed_id, skip=skip, limit=limit)
-    return GenericResponse.success_response(reviews)
+    
+    # 평균 평점 조회
+    avg_score = review_crud.get_average_rating_by_feed(db, feed_id=feed_id)
+
+    # 응답 데이터 구성
+    response_data = ReviewListResponse(
+        avgScore=avg_score,
+        reviewList=reviews
+    )
+    
+    return GenericResponse.success_response(response_data)
 
 # --- AI 이미지 생성 기능 ---
 
