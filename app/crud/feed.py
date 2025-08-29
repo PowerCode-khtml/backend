@@ -8,6 +8,8 @@ from app.models.store_feed import StoreFeed
 from app.models.product_feed import ProductFeed
 from app.models.event_feed import EventFeed
 from app.models.feed_like import FeedLike
+from app.models.review import Review # Add this import for review count
+from sqlalchemy import text # Add this import
 import datetime
 
 def get_feed(db: Session, feed_id: int):
@@ -40,6 +42,37 @@ def get_feeds_by_market(db: Session, market_id: int, promo_kind: str = None, ski
         query = query.filter(Feed.promoKind == promo_kind)
 
     return query.order_by(Feed.created_at.desc()).offset(skip).limit(limit).all()
+
+def get_feeds_details_by_market(db: Session, market_id: int, user_id: int, skip: int = 0, limit: int = 50):
+    sql_query = text(f"""
+    SELECT
+        f.feedid AS feedId,
+        s.storeName AS storeName,
+        h.imgUrl AS storeImageUrl,
+        f.created_at AS createdAt,
+        f.body AS feedContent,
+        f.mediaUrl AS feedImageUrl,
+        f.promoKind AS feedType,
+        COUNT(DISTINCT fl.userid) AS feedLikeCount,
+        COUNT(DISTINCT r.reviewid) AS feedReviewCount,
+        CASE WHEN EXISTS (
+            SELECT 1
+            FROM feedlike fl_user
+            WHERE fl_user.feedid = f.feedid AND fl_user.userid = :user_id
+        ) THEN TRUE ELSE FALSE END AS isLiked
+    FROM feed f
+    JOIN store s ON f.storeid = s.storeid
+    JOIN host h ON s.hostid = h.hostid
+    LEFT JOIN feedlike fl ON f.feedid = fl.feedid
+    LEFT JOIN review r ON f.feedid = r.feedid
+    WHERE s.marketid = :market_id
+    GROUP BY f.feedid, s.storeName, h.imgUrl, f.created_at, f.body, f.mediaUrl, f.promoKind
+    ORDER BY f.created_at DESC
+    LIMIT :limit OFFSET :offset;
+    """)
+    
+    result = db.execute(sql_query, {"market_id": market_id, "user_id": user_id, "limit": limit, "offset": skip}).mappings().all()
+    return result
 
 def create_feed_with_details(
     db: Session,

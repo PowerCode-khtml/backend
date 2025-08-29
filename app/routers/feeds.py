@@ -10,17 +10,119 @@ from typing import List, Optional
 import datetime
 
 from app.database import get_db
-from app.schemas.feed import FeedCreate, FeedResponse
+from app.schemas.feed import FeedCreate, FeedResponse, FeedInfo, FeedListResponse
 from app.schemas.review import ReviewCreate, ReviewResponse, ReviewListResponse
 from app.schemas.interaction import FeedLikeCreate, FeedLikeToggleResponse, FeedLikesCountResponse
 from app.schemas.image import GeneratedFeedMediaResponse, FeedMediaResponseData
 from app.schemas.base_response import GenericResponse
 from app.crud import feed as feed_crud, review as review_crud, store as store_crud
 from app.services.image_generator import ImageGeneratorService
+from app.services.s3 import S3Service
 
 router = APIRouter(prefix="/feed", tags=["feeds"])
 
+s3_service = S3Service()
+
 # --- 피드 기능 ---
+
+@router.post("/local", response_model=GenericResponse[FeedResponse])
+def create_feed_local(
+    db: Session = Depends(get_db),
+    feedType: str = Form(...),
+    mediaType: str = Form(...),
+    hostId: int = Form(...),
+    feedMediaFile: UploadFile = File(None),
+    feedBody: str = Form(...),
+    # Store-specific
+    storeDescription: Optional[str] = Form(None),
+    storeImage: Optional[UploadFile] = File(None),
+    # Product-specific
+    productName: Optional[str] = Form(None),
+    categoryId: Optional[int] = Form(None),
+    productDescription: Optional[str] = Form(None),
+    productImage: Optional[UploadFile] = File(None),
+    # Event-specific
+    eventName: Optional[str] = Form(None),
+    eventDescription: Optional[str] = Form(None),
+    eventStartAt: Optional[datetime.datetime] = Form(None),
+    eventEndAt: Optional[datetime.datetime] = Form(None),
+    eventImage: Optional[UploadFile] = File(None),
+):
+    """새로운 피드를 유형에 따라 생성합니다 (S3 업로드 포함)."""
+    # S3에 피드 미디어 파일 업로드
+    feed_media_url = s3_service.upload_file(feedMediaFile)
+    if not feed_media_url:
+        return GenericResponse.error_response(
+            error_message="S3에 피드 미디어를 업로드하지 못했습니다.",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+
+    # TODO: 각 타입별 이미지들도 S3에 업로드 (현재는 로컬 경로 사용)
+    store_image_url = ""
+    product_image_url = ""
+    event_image_url = ""
+
+    stores = store_crud.get_stores_by_host(db, host_id=hostId)
+    if not stores:
+        return GenericResponse.error_response(
+            error_message="상점을 찾을 수 없습니다.",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    storeId = stores[0].storeid
+
+    if storeImage:
+        store_image_url = feed_media_url#s3_service.upload_file(storeImage)
+    if productImage:
+        product_image_url = feed_media_url#3_service.upload_file(productImage)
+    if eventImage:
+        event_image_url = feed_media_url#s3_service.upload_file(eventImage)
+
+    # feedType에 따라 필수 파라미터 검증
+    if feedType == "store":
+        if not all([storeDescription, storeImage]):
+            return GenericResponse.error_response(
+                error_message="'store' 타입에 필요한 필드가 누락되었습니다: storeDescription, storeImage",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+    elif feedType == "product":
+        if not all([productName, categoryId, productDescription, productImage]):
+            return GenericResponse.error_response(
+                error_message="'product' 타입에 필요한 필드가 누락되었습니다: productName, categoryId, productDescription, productImage",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+    elif feedType == "event":
+        if not all([eventName, eventDescription, eventStartAt, eventEndAt, eventImage]):
+            return GenericResponse.error_response(
+                error_message="'event' 타입에 필요한 필드가 누락되었습니다: eventName, eventDescription, eventStartAt, eventEndAt, eventImage",
+                status_code=status.HTTP_400_BAD_REQUEST
+            )
+    else:
+        return GenericResponse.error_response(
+            error_message="잘못된 'feedType'입니다. 'store', 'product', 'event' 중 하나여야 합니다.",
+            status_code=status.HTTP_400_BAD_REQUEST
+        )
+
+    db_feed = feed_crud.create_feed_with_details(
+        db=db,
+        feed_type=feedType,
+        media_type=mediaType,
+        store_id=storeId,
+        feed_body=feedBody,
+        feed_media_url=feed_media_url,
+        store_description=storeDescription,
+        store_image_url=store_image_url,
+        product_name=productName,
+        category_id=categoryId,
+        product_description=productDescription,
+        product_image_url=product_image_url,
+        event_name=eventName,
+        event_description=eventDescription,
+        event_start_at=eventStartAt,
+        event_end_at=eventEndAt,
+        event_image_url=event_image_url,
+    )
+    
+    return GenericResponse.success_response(db_feed)
 
 @router.post("/", response_model=GenericResponse[FeedResponse])
 def create_feed(
@@ -114,17 +216,42 @@ def create_feed(
     
     return GenericResponse.success_response(db_feed)
 
-@router.get("/{market_id}", response_model=GenericResponse[List[FeedResponse]])
+@router.get("/{market_id}/{user_id}", response_model=GenericResponse[FeedListResponse])
 def get_feeds_by_market(
     market_id: int,
+    user_id: int,
     skip: int = 0, 
     limit: int = 50,
     promo_kind: str = Query(None, description="피드 타입: store, product, event"),
     db: Session = Depends(get_db)
 ):
     """특정 시장의 피드 목록 조회"""
-    feeds = feed_crud.get_feeds_by_market(db, market_id=market_id, promo_kind=promo_kind, skip=skip, limit=limit)
-    return GenericResponse.success_response(feeds)
+    feeds_data = feed_crud.get_feeds_details_by_market(db, market_id=market_id, user_id=user_id, skip=skip, limit=limit)
+    
+    # Process feeds_data to create FeedInfo objects
+    feed_info_list = []
+    for feed_item in feeds_data:
+        # Derive feedTitle from feedContent
+        feed_content = feed_item.feedContent if feed_item.feedContent else ""
+        feed_title = feed_content[:50] + "..." if len(feed_content) > 50 else feed_content
+
+        feed_info_list.append(
+            FeedInfo(
+                feedId=feed_item.feedId,
+                storeName=feed_item.storeName,
+                storeImageUrl=feed_item.storeImageUrl,
+                createdAt=feed_item.createdAt,
+                feedTitle=feed_title,
+                feedContent=feed_item.feedContent,
+                feedImageUrl=feed_item.feedImageUrl,
+                feedType=feed_item.feedType,
+                feedLikeCount=feed_item.feedLikeCount,
+                feedReviewCount=feed_item.feedReviewCount,
+                isLiked=feed_item.isLiked
+            )
+        )
+    
+    return GenericResponse.success_response(FeedListResponse(feedList=feed_info_list))
 
 @router.get("/{feed_id}", response_model=GenericResponse[FeedResponse])
 def get_feed(feed_id: int, db: Session = Depends(get_db)):
