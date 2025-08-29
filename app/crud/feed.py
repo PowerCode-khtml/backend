@@ -45,41 +45,143 @@ def get_feeds_by_market(db: Session, market_id: int, promo_kind: str = None, ski
 
 def get_feeds_details_by_market(db: Session, market_id: int, user_id: int, skip: int = 0, limit: int = 50):
     sql_query = text(f"""
-    SELECT
-        f.feedid AS feedId,
-        s.storeName AS storeName,
-        h.imgUrl AS storeImageUrl,
-        f.created_at AS createdAt,
-        f.body AS feedContent,
-        f.mediaUrl AS feedImageUrl,
-        f.promoKind AS feedType,
-        CASE
-            WHEN f.promoKind = 'store' THEN s.storeName
-            WHEN f.promoKind = 'product' THEN pf.productName
-            WHEN f.promoKind = 'event' THEN ef.eventName
-            ELSE f.body
-        END AS feedTitle,
-        COUNT(DISTINCT fl.userid) AS feedLikeCount,
-        COUNT(DISTINCT r.reviewid) AS feedReviewCount,
-        CASE WHEN EXISTS (
-            SELECT 1
-            FROM feedlike fl_user
-            WHERE fl_user.feedid = f.feedid AND fl_user.userid = :user_id
-        ) THEN TRUE ELSE FALSE END AS isLiked
-    FROM feed f
-    JOIN store s ON f.storeid = s.storeid
-    JOIN host h ON s.hostid = h.hostid
-    LEFT JOIN productfeed pf ON f.feedid = pf.feedid
-    LEFT JOIN eventfeed ef ON f.feedid = ef.feedid
-    LEFT JOIN feedlike fl ON f.feedid = fl.feedid
-    LEFT JOIN review r ON f.feedid = r.feedid
-    WHERE s.marketid = :market_id
-    GROUP BY f.feedid, s.storeName, h.imgUrl, f.created_at, f.body, f.mediaUrl, f.promoKind, pf.productName, ef.eventName
-    ORDER BY f.created_at DESC
-    LIMIT :limit OFFSET :offset;
-    """)
+WITH
+subscribed_stores AS (
+  SELECT s.storeid, s.categoryid
+  FROM subscription sub
+  JOIN store s ON s.storeid = sub.storeid
+  WHERE sub.userid = :user_id AND s.marketid = :market_id
+),
+liked_feeds AS (
+  SELECT f.feedid, f.storeid, st.categoryid, f.promoKind
+  FROM feedlike fl
+  JOIN feed f  ON f.feedid = fl.feedid
+  JOIN store st ON st.storeid = f.storeid
+  WHERE fl.userid = :user_id AND st.marketid = :market_id
+),
+liked_product_categories AS (
+  SELECT pf.productCategoryID
+  FROM liked_feeds lf
+  JOIN productfeed pf ON pf.feedid = lf.feedid
+),
+market_feeds AS (
+  SELECT f.feedid, f.storeid, f.promoKind, f.mediaType, f.mediaUrl, f.body, f.created_at,
+         st.storeName, st.categoryid, st.hostid
+  FROM feed f
+  JOIN store st ON st.storeid = f.storeid
+  WHERE st.marketid = :market_id
+),
+likes AS (
+  SELECT feedid, COUNT(*) AS like_cnt
+  FROM feedlike
+  GROUP BY feedid
+),
+reviews AS (
+  SELECT feedid, COUNT(*) AS review_cnt, AVG(rating) AS avg_rating
+  FROM review
+  GROUP BY feedid
+),
+event_active AS (
+  SELECT ef.feedid,
+         (NOW() BETWEEN ef.start_at AND ef.end_at) AS is_active,
+         (TIMESTAMPDIFF(HOUR, NOW(), ef.end_at) BETWEEN 0 AND 24) AS is_ending_soon
+  FROM eventfeed ef
+)
+SELECT
+  mf.feedid AS feedId,
+  mf.storeName AS storeName,
+  h.imgUrl AS storeImageUrl,
+  mf.created_at AS createdAt,
+
+  CASE
+    WHEN mf.promoKind = 'store'   THEN mf.storeName
+    WHEN mf.promoKind = 'product' THEN pf.productName
+    WHEN mf.promoKind = 'event'   THEN ef.eventName
+  END AS feedTitle,
+
+  mf.body AS feedContent,
+  mf.mediaUrl AS feedImageUrl,
+
+  CASE mf.promoKind
+    WHEN 'store'   THEN '점포'
+    WHEN 'product' THEN '상품'
+    WHEN 'event'   THEN '이벤트'
+  END AS feedType,
+
+  IFNULL(l.like_cnt, 0) AS feedLikeCount,
+  IFNULL(r.review_cnt, 0) AS feedReviewCount,
+  CASE WHEN EXISTS (
+      SELECT 1
+      FROM feedlike fl_user
+      WHERE fl_user.feedid = mf.feedid AND fl_user.userid = :user_id
+  ) THEN TRUE ELSE FALSE END AS isLiked
+
+FROM market_feeds mf
+LEFT JOIN productfeed pf ON pf.feedid = mf.feedid
+LEFT JOIN eventfeed   ef ON ef.feedid = mf.feedid
+LEFT JOIN likes       l  ON l.feedid  = mf.feedid
+LEFT JOIN reviews     r  ON r.feedid  = mf.feedid
+LEFT JOIN event_active ea ON ea.feedid = mf.feedid
+LEFT JOIN host h ON h.hostid = mf.hostid
+
+LEFT JOIN subscribed_stores ss
+  ON ss.storeid = mf.storeid
+LEFT JOIN ( SELECT DISTINCT categoryid FROM subscribed_stores ) sub_cats
+  ON sub_cats.categoryid = mf.categoryid
+LEFT JOIN ( SELECT DISTINCT productCategoryID FROM liked_product_categories ) like_prod_cats
+  ON like_prod_cats.productCategoryID = pf.productCategoryID
+LEFT JOIN ( SELECT DISTINCT categoryid FROM liked_feeds ) like_store_cats
+  ON like_store_cats.categoryid = mf.categoryid
+
+ORDER BY
+  CASE
+    WHEN ss.storeid IS NOT NULL THEN 1
+    WHEN sub_cats.categoryid IS NOT NULL
+       OR like_prod_cats.productCategoryID IS NOT NULL
+       OR like_store_cats.categoryid IS NOT NULL
+    THEN 2
+    ELSE 3
+  END ASC,
+  (
+    (CASE
+      WHEN ss.storeid IS NOT NULL THEN 100
+      WHEN sub_cats.categoryid IS NOT NULL THEN 60
+      WHEN like_prod_cats.productCategoryID IS NOT NULL THEN 60
+      WHEN like_store_cats.categoryid IS NOT NULL THEN 55
+      ELSE 10
+    END)
+    + (CASE
+        WHEN mf.created_at >= NOW() - INTERVAL 1 DAY  THEN 20
+        WHEN mf.created_at >= NOW() - INTERVAL 7 DAY  THEN 10
+        WHEN mf.created_at >= NOW() - INTERVAL 30 DAY THEN 5
+        ELSE 0
+      END)
+    + (CASE WHEN ea.is_active = 1 THEN 15 ELSE 0 END)
+    + (CASE WHEN ea.is_ending_soon = 1 THEN 10 ELSE 0 END)
+    + (LOG(1 + IFNULL(l.like_cnt,0)) * 5)
+    + (LOG(1 + IFNULL(r.review_cnt,0)) * 3)
+    + (IFNULL(r.avg_rating,0) * 2)
+    + (CASE
+         WHEN ss.storeid IS NULL
+          AND sub_cats.categoryid IS NULL
+          AND like_prod_cats.productCategoryID IS NULL
+          AND like_store_cats.categoryid IS NULL
+          THEN RAND()*5
+         ELSE 0
+       END)
+  ) DESC,
+  mf.created_at DESC
+LIMIT :limit OFFSET :offset;
+""")
     
-    result = db.execute(sql_query, {"market_id": market_id, "user_id": user_id, "limit": limit, "offset": skip}).mappings().all()
+    params = {
+        "user_id": user_id,
+        "market_id": market_id,
+        "limit": limit,
+        "offset": skip
+    }
+    
+    result = db.execute(sql_query, params).mappings().all()
     return result
 
 def create_feed_with_details(
