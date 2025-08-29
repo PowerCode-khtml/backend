@@ -230,7 +230,7 @@ def get_feeds_by_store(
 @router.post("/{feed_id}/like", response_model=GenericResponse[FeedLikeToggleResponse])
 def toggle_feed_like(
     feed_id: int,
-    user_id: int,  # 해커톤용 단순화 (실제로는 JWT에서 추출)
+    userId: int = Form(..., alias="userId"),
     db: Session = Depends(get_db)
 ):
     """피드 좋아요/좋아요 취소"""
@@ -241,7 +241,7 @@ def toggle_feed_like(
             status_code=status.HTTP_404_NOT_FOUND
         )
     
-    is_liked = feed_crud.toggle_feed_like(db, user_id=user_id, feed_id=feed_id)
+    is_liked = feed_crud.toggle_feed_like(db, user_id=userId, feed_id=feed_id)
     likes_count = feed_crud.get_feed_likes_count(db, feed_id=feed_id)
     
     return GenericResponse.success_response(
