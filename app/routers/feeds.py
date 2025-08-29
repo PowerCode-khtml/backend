@@ -233,7 +233,7 @@ def get_feeds_by_market(
     for feed_item in feeds_data:
         # Derive feedTitle from feedContent
         feed_content = feed_item.feedContent if feed_item.feedContent else ""
-        feed_title = feed_content[:50] + "..." if len(feed_content) > 50 else feed_content
+        feed_title = feed_content[:10] + "..." if len(feed_content) > 10 else feed_content
 
         feed_info_list.append(
             FeedInfo(
