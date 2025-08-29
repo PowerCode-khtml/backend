@@ -16,6 +16,7 @@ from .subscription import Subscription
 from .review import Review
 from .payment_method import PaymentMethod
 from .store_payment_method import StorePaymentMethod
+from .search_log import SearchLog
 
 __all__ = [
     "User",
@@ -32,5 +33,6 @@ __all__ = [
     "Subscription",
     "Review",
     "PaymentMethod",
-    "StorePaymentMethod"
+    "StorePaymentMethod",
+    "SearchLog"
 ]

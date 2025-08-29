@@ -59,7 +59,7 @@ def get_store_rankings(db: Session, limit: int = 10):
 
 def get_product_rankings(db: Session, limit: int = 10):
     sql_query = text(f"""
-    SELECT
+	    SELECT
 	        bp.mediaUrl,
 	        bp.productName,
 	        bp.like_count,
@@ -79,11 +79,10 @@ def get_product_rankings(db: Session, limit: int = 10):
 	            f.feedid,
 	            f.mediaUrl,
 	            -- ONLY_FULL_GROUP_BY 환경에서도 안전하게: PK 종속 컬럼은 MAX로 취함
-	            MAX(p.productName) AS productName,
+	            MAX(pf.productName) AS productName,
 	            COUNT(fl.userid) AS like_count
 	        FROM feed f
-	        JOIN product_feed pf ON pf.feedid = f.feedid
-            JOIN product p ON p.productid = pf.productid
+	        JOIN productfeed pf ON pf.feedid = f.feedid
 	        LEFT JOIN feedlike fl ON fl.feedid = f.feedid
 	        WHERE f.promoKind = 'product'
 	        GROUP BY f.feedid, f.mediaUrl
@@ -125,6 +124,21 @@ def get_event_rankings(db: Session, limit: int = 10):
         GROUP BY f.feedid
     ) be
     ORDER BY be.like_count DESC, be.feedid ASC
+    LIMIT {limit};
+    """)
+    result = db.execute(sql_query).mappings().all()
+    return result
+
+def get_search_trend_rankings(db: Session, limit: int = 10):
+    sql_query = text(f"""
+    SELECT
+      s1.keyword,
+      (SELECT COUNT(DISTINCT s2.volume) + 1
+         FROM search_log s2
+        WHERE s2.volume > s1.volume
+      ) AS `rank`
+    FROM search_log s1
+    ORDER BY s1.volume DESC, s1.keyword ASC
     LIMIT {limit};
     """)
     result = db.execute(sql_query).mappings().all()

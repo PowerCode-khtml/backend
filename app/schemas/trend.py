@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List
 
 class StoreRankInfo(BaseModel):
@@ -26,3 +26,10 @@ class EventRankInfo(BaseModel):
 
 class EventRankResponse(BaseModel):
     rankings: List[EventRankInfo]
+
+class SearchTrendInfo(BaseModel):
+    rank: int
+    searchName: str = Field(..., alias="keyword")
+
+class SearchTrendResponse(BaseModel):
+    rankings: List[SearchTrendInfo]
