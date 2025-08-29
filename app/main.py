@@ -7,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
 
+from app.middleware import LoggingMiddleware
+
 # .env 파일 로드
 load_dotenv()
 
@@ -32,6 +34,9 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc"
 )
+
+# 로깅 미들웨어 추가
+app.add_middleware(LoggingMiddleware)
 
 # CORS 설정 (해커톤용 - 모든 오리진 허용)
 app.add_middleware(
