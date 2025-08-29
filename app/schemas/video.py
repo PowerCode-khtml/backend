@@ -7,6 +7,7 @@ from datetime import datetime
 
 class VideoInfo(BaseModel):
     videoId: int = Field(..., alias="videoId")
+    storeId: int = Field(..., alias="storeId")
     videoName: str = Field(..., alias="videoName")
     videoUrl: str = Field(..., alias="videoUrl")
     createdAt: datetime = Field(..., alias="createdAt")

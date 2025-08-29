@@ -8,6 +8,7 @@ def get_videos(db: Session, skip: int = 0, limit: int = 100):
     sql_query = text("""
     SELECT
         f.feedid AS videoId,
+        f.storeid AS storeId,
         CASE
             WHEN f.promoKind = 'store' THEN s.storeName
             WHEN f.promoKind = 'product' THEN pf.productName
@@ -28,7 +29,7 @@ def get_videos(db: Session, skip: int = 0, limit: int = 100):
     LEFT JOIN feedlike fl ON f.feedid = fl.feedid
     LEFT JOIN review r ON f.feedid = r.feedid
     WHERE f.mediaType = 'video'
-    GROUP BY f.feedid, s.storeName, h.imgUrl, f.created_at, f.body, f.mediaUrl, f.promoKind, pf.productName, ef.eventName
+    GROUP BY f.feedid, f.storeid, s.storeName, h.imgUrl, f.created_at, f.body, f.mediaUrl, f.promoKind, pf.productName, ef.eventName
     ORDER BY f.created_at DESC
     LIMIT :limit OFFSET :offset;
     """)

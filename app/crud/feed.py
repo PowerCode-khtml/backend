@@ -89,6 +89,7 @@ event_active AS (
 )
 SELECT
   mf.feedid AS feedId,
+  mf.storeid AS storeId,
   mf.storeName AS storeName,
   h.imgUrl AS storeImageUrl,
   mf.created_at AS createdAt,

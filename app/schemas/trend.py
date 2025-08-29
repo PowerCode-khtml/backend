@@ -3,6 +3,7 @@ from typing import List
 
 class StoreRankInfo(BaseModel):
     rank: int
+    storeId: int
     storeName: str
     imgUrl: str | None
 

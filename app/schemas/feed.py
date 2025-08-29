@@ -99,6 +99,7 @@ class GeneratedFeedMediaResponse(BaseModel):
 # 새로운 피드 상세 정보 스키마
 class FeedInfo(BaseModel):
     feedId: int = Field(..., serialization_alias="feedId")
+    storeId: int = Field(..., serialization_alias="storeId")
     storeName: str = Field(..., serialization_alias="storeName")
     storeImageUrl: Optional[str] = Field(None, serialization_alias="storeImageUrl")
     createdAt: datetime = Field(..., serialization_alias="createdAt")

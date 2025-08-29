@@ -325,6 +325,7 @@ def get_feeds_by_market(
         feed_info_list.append(
             FeedInfo(
                 feedId=feed_item.feedId,
+                storeId=feed_item.storeId,
                 storeName=feed_item.storeName,
                 storeImageUrl=feed_item.storeImageUrl,
                 createdAt=feed_item.createdAt,

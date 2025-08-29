@@ -4,6 +4,7 @@ from sqlalchemy import text
 def get_store_rankings(db: Session, limit: int = 10):
     sql_query = text(f"""
     SELECT
+        bs.storeid AS storeId,
         bs.storeName,
         bs.imgUrl,
         -- dense rank: 현재 점수보다 큰 '서로 다른 점수'의 개수 + 1
