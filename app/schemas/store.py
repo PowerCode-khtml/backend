@@ -2,7 +2,7 @@
 상점 스키마
 """
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import time
 
 class StoreBase(BaseModel):
@@ -38,3 +38,27 @@ class StoreResponse(StoreBase):
     
     class Config:
         from_attributes = True
+
+
+class StoreInDB(StoreResponse):
+    pass
+
+class StoreProfileFeed(BaseModel):
+    mediaUrl: Optional[str] = None
+    feedName: str
+    like_count: int
+    feedType: str
+
+class StoreProfileResponse(BaseModel):
+    storeImg: Optional[str] = None
+    followerCount: int
+    totalLikedCount: int
+    isMyStore: bool
+    storeDescript: Optional[str] = None
+    storeAddress: Optional[str] = None
+    storePhoneNumber: Optional[str] = None
+    weekdayStart: Optional[str] = None
+    weekdayEnd: Optional[str] = None
+    weekendStart: Optional[str] = None
+    weekendEnd: Optional[str] = None
+    feeds: List[StoreProfileFeed]
