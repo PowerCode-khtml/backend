@@ -79,10 +79,11 @@ def get_product_rankings(db: Session, limit: int = 10):
 	            f.feedid,
 	            f.mediaUrl,
 	            -- ONLY_FULL_GROUP_BY 환경에서도 안전하게: PK 종속 컬럼은 MAX로 취함
-	            MAX(pf.productName) AS productName,
+	            MAX(p.productName) AS productName,
 	            COUNT(fl.userid) AS like_count
 	        FROM feed f
-	        JOIN productfeed pf ON pf.feedid = f.feedid
+	        JOIN product_feed pf ON pf.feedid = f.feedid
+            JOIN product p ON p.productid = pf.productid
 	        LEFT JOIN feedlike fl ON fl.feedid = f.feedid
 	        WHERE f.promoKind = 'product'
 	        GROUP BY f.feedid, f.mediaUrl
@@ -91,5 +92,40 @@ def get_product_rankings(db: Session, limit: int = 10):
 	    LIMIT {limit};
     """)
 
+    result = db.execute(sql_query).mappings().all()
+    return result
+
+def get_event_rankings(db: Session, limit: int = 10):
+    sql_query = text(f"""
+    SELECT
+        be.eventName,
+        be.imgUrl,
+        be.like_count,
+        (
+            SELECT COUNT(DISTINCT x.like_count) + 1
+            FROM (
+                SELECT f2.feedid, COUNT(fl2.userid) AS like_count
+                FROM feed f2
+                LEFT JOIN feedlike fl2 ON fl2.feedid = f2.feedid
+                WHERE f2.promoKind = 'event'
+                GROUP BY f2.feedid
+            ) x
+            WHERE x.like_count > be.like_count
+        ) AS `rank`
+    FROM (
+        SELECT
+            f.feedid,
+            MAX(ef.eventName) AS eventName,
+            MAX(ef.imgUrl)    AS imgUrl,
+            COUNT(fl.userid)  AS like_count
+        FROM feed f
+        JOIN eventfeed ef ON ef.feedid = f.feedid
+        LEFT JOIN feedlike fl ON fl.feedid = f.feedid
+        WHERE f.promoKind = 'event'
+        GROUP BY f.feedid
+    ) be
+    ORDER BY be.like_count DESC, be.feedid ASC
+    LIMIT {limit};
+    """)
     result = db.execute(sql_query).mappings().all()
     return result

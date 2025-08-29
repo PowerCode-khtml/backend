@@ -17,3 +17,12 @@ class ProductRankInfo(BaseModel):
 
 class ProductRankResponse(BaseModel):
     rankings: List[ProductRankInfo]
+
+class EventRankInfo(BaseModel):
+    rank: int
+    eventName: str
+    imgUrl: str | None
+    like_count: int
+
+class EventRankResponse(BaseModel):
+    rankings: List[EventRankInfo]
