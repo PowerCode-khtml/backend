@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.database import get_db
-from app.schemas.store import StoreCreate, StoreResponse, StoreUpdate, StoreProfileResponse
+from app.schemas.store import StoreCreate, StoreResponse, StoreUpdate, StoreProfileResponse, UserSubscriptionCreate
 from app.schemas.base_response import GenericResponse, MessageResponse
 from app.crud import store as store_crud
 
@@ -90,3 +90,46 @@ def get_store_profile(store_id: int, host_id: int, db: Session = Depends(get_db)
             status_code=status.HTTP_404_NOT_FOUND
         )
     return GenericResponse.success_response(store_profile)
+
+@router.post("/subscribe/{store_id}", response_model=GenericResponse[MessageResponse])
+def subscribe_store(
+    store_id: int,
+    user_sub: UserSubscriptionCreate,
+    db: Session = Depends(get_db)
+):
+    """상점 구독"""
+    # 상점 존재 여부 확인
+    store = store_crud.get_store(db, store_id=store_id)
+    if not store:
+        return GenericResponse.error_response(
+            error_message="상점을 찾을 수 없습니다",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    
+    # 사용자 존재 여부 확인 (선택 사항, 필요시 추가)
+    # user = user_crud.get_user(db, user_id=user_sub.userId)
+    # if not user:
+    #     return GenericResponse.error_response(
+    #         error_message="사용자를 찾을 수 없습니다",
+    #         status_code=status.HTTP_404_NOT_FOUND
+    #     )
+
+    # 이미 구독 중인지 확인 (선택 사항, 필요시 추가)
+    # existing_subscription = db.query(Subscription).filter(
+    #     Subscription.userid == user_sub.userId,
+    #     Subscription.storeid == store_id
+    # ).first()
+    # if existing_subscription:
+    #     return GenericResponse.error_response(
+    #         error_message="이미 구독 중입니다",
+    #         status_code=status.HTTP_409_CONFLICT
+    #     )
+
+    try:
+        store_crud.create_subscription(db, user_id=user_sub.userId, store_id=store_id)
+        return GenericResponse.success_response(MessageResponse(message="상점 구독 성공"))
+    except Exception as e:
+        return GenericResponse.error_response(
+            error_message=f"상점 구독 실패: {str(e)}",
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )

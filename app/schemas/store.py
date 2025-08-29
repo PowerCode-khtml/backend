@@ -62,3 +62,6 @@ class StoreProfileResponse(BaseModel):
     weekendStart: Optional[str] = None
     weekendEnd: Optional[str] = None
     feeds: List[StoreProfileFeed]
+
+class UserSubscriptionCreate(BaseModel):
+    userId: int

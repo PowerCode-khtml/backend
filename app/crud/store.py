@@ -115,3 +115,10 @@ def get_store_profile(db: Session, store_id: int, host_id: int):
         "weekendEnd": store.weekendCloseTime.strftime("%H:%M") if store.weekendCloseTime else None,
         "feeds": feeds
     }
+
+def create_subscription(db: Session, user_id: int, store_id: int):
+    db_subscription = Subscription(userid=user_id, storeid=store_id)
+    db.add(db_subscription)
+    db.commit()
+    db.refresh(db_subscription)
+    return db_subscription
