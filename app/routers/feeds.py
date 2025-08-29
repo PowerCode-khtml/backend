@@ -8,6 +8,8 @@ from fastapi import (
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import datetime
+import os
+import mimetypes
 
 from app.database import get_db
 from app.schemas.feed import FeedCreate, FeedResponse, FeedInfo, FeedListResponse
@@ -345,7 +347,7 @@ def get_feeds_by_market(
 
 image_service = ImageGeneratorService()
 
-@router.post("/generate", response_model=GeneratedFeedMediaResponse, tags=["ai-images"])
+@router.post("/generate-dev", response_model=GeneratedFeedMediaResponse, tags=["ai-images"])
 async def generate_feed_media(
     db: Session = Depends(get_db),
     feedType: str = Form(...),
@@ -376,7 +378,7 @@ async def generate_feed_media(
         success=True
     )
 
-@router.post("/generate-dev", response_model=GeneratedFeedMediaResponse, tags=["ai-images"])
+@router.post("/generate", response_model=GeneratedFeedMediaResponse, tags=["ai-images"])
 async def generate_feed_media_dev(
     db: Session = Depends(get_db),
     feedType: str = Form(...),
@@ -400,16 +402,18 @@ async def generate_feed_media_dev(
     input_image: Optional[UploadFile] = None
 
     if mediaType == "video":
-        return GenericResponse.error_response(
-            error_message="비디오 생성은 현재 지원되지 않습니다.",
-            status_code=status.HTTP_400_BAD_REQUEST
+        return GeneratedFeedMediaResponse(
+            responseDto=FeedMediaResponseData(),
+            success=False,
+            error="비디오 생성은 현재 지원되지 않습니다."
         )
 
     if feedType == "store":
         if not all([hostId, storeDescription, storeImage]):
-            return GenericResponse.error_response(
-                error_message="'store' 타입에 필요한 필드가 누락되었습니다.",
-                status_code=status.HTTP_400_BAD_REQUEST
+            return GeneratedFeedMediaResponse(
+                responseDto=FeedMediaResponseData(),
+                success=False,
+                error="'store' 타입에 필요한 필드가 누락되었습니다."
             )
         stores = store_crud.get_stores_by_host(db, host_id=hostId)
         if not stores:
@@ -424,9 +428,10 @@ async def generate_feed_media_dev(
 
     elif feedType == "product":
         if not all([hostId, productName, categoryId, productDescription, productImage]):
-            return GenericResponse.error_response(
-                error_message="'product' 타입에 필요한 필드가 누락되었습니다.",
-                status_code=status.HTTP_400_BAD_REQUEST
+            return GeneratedFeedMediaResponse(
+                responseDto=FeedMediaResponseData(),
+                success=False,
+                error="'product' 타입에 필요한 필드가 누락되었습니다."
             )
         stores = store_crud.get_stores_by_host(db, host_id=hostId)
         if not stores:
@@ -441,18 +446,19 @@ async def generate_feed_media_dev(
 
     elif feedType == "event":
         if not all([eventName, eventDescription, eventStartAt, eventEndAt, eventImage]):
-            return GenericResponse.error_response(
-                error_message="'event' 타입에 필요한 필드가 누락되었습니다.",
-                status_code=status.HTTP_400_BAD_REQUEST
+            return GeneratedFeedMediaResponse(
+                responseDto=FeedMediaResponseData(),
+                success=False,
+                error="'event' 타입에 필요한 필드가 누락되었습니다."
             )
         prompt = image_service.create_event_prompt(eventName, eventDescription)
         body_text = f"{eventName}: {eventDescription}"
         input_image = eventImage
 
     else:
-        return GenericResponse.error_response(
-            error_message="잘못된 'feedType'입니다.",
-            status_code=status.HTTP_400_BAD_REQUEST
+        return GeneratedFeedMediaResponse(
+            success=False,
+            error="잘못된 'feedType'입니다."
         )
 
     if input_image:
@@ -461,14 +467,45 @@ async def generate_feed_media_dev(
     generation_result = await image_service.generate_image(prompt)
 
     if not generation_result["success"]:
-        return GenericResponse.error_response(
-            error_message=generation_result.get("error", "이미지 생성에 실패했습니다."),
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
+        return GeneratedFeedMediaResponse(
+            responseDto=FeedMediaResponseData(),
+            success=False,
+            error=generation_result.get("error", "이미지 생성에 실패했습니다.")
         )
+
+    # S3에 이미지 업로드
+    local_image_path = generation_result["mediaUrl"]
+    s3_image_url = None
+    try:
+        with open(local_image_path, "rb") as f:
+            file_content = f.read()
+            filename = os.path.basename(local_image_path)
+            content_type, _ = mimetypes.guess_type(filename)
+            if content_type is None:
+                content_type = "application/octet-stream" # Default if type cannot be guessed
+
+            s3_image_url = s3_service.upload_file(file_content, filename, content_type)
+    except Exception as e:
+        return GeneratedFeedMediaResponse(
+            responseDto=FeedMediaResponseData(),
+            success=False,
+            error=f"S3 업로드 실패: {str(e)}"
+        )
+    finally:
+        # 로컬 파일 삭제
+        if os.path.exists(local_image_path):
+            os.remove(local_image_path)
+
+    # if not s3_image_url:
+    #     return GeneratedFeedMediaResponse(
+    #         responseDto=FeedMediaResponseData(),
+    #         success=False,
+    #         error="S3 업로드에 실패했습니다."
+    #     )
 
     return GeneratedFeedMediaResponse(
         responseDto=FeedMediaResponseData(
-            feedMediaUrl=generation_result["mediaUrl"],
+            feedMediaUrl=s3_image_url,
             feedBody=body_text
         ),
         success=True

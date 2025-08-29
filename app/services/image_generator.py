@@ -114,7 +114,7 @@ class ImageGeneratorService:
 
             return {
                 "success": True,
-                "mediaUrl": f"/generated/{output_filename}",
+                "mediaUrl": f"/home/teom142/goinfre/study/market/backend/generated/{output_filename}",
             }
         except Exception as e:
             print(f"Error during image generation: {e}")

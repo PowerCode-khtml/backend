@@ -1,7 +1,7 @@
 import boto3
 import os
 import uuid
-from fastapi import UploadFile
+from io import BytesIO
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -22,21 +22,21 @@ class S3Service:
             aws_secret_access_key=self.secret_key
         )
 
-    def upload_file(self, file: UploadFile) -> str | None:
+    def upload_file(self, file_content: bytes, filename: str, content_type: str) -> str | None:
         """
         S3에 파일을 업로드하고 해당 URL을 반환합니다.
         """
         try:
             # 랜덤 파일명 생성
-            file_extension = os.path.splitext(file.filename)[1]
+            file_extension = os.path.splitext(filename)[1]
             random_filename = f"{uuid.uuid4()}{file_extension}"
             s3_key = f"{self.upload_path}/{random_filename}"
 
             self.s3.upload_fileobj(
-                file.file,
+                BytesIO(file_content),
                 self.bucket_name,
                 s3_key,
-                ExtraArgs={'ContentType': file.content_type}
+                ExtraArgs={'ContentType': content_type, 'ACL': 'public-read'}
             )
             
             # S3 URL 구성 (리전별 엔드포인트 고려)
