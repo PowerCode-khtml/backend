@@ -53,6 +53,12 @@ def get_feeds_details_by_market(db: Session, market_id: int, user_id: int, skip:
         f.body AS feedContent,
         f.mediaUrl AS feedImageUrl,
         f.promoKind AS feedType,
+        CASE
+            WHEN f.promoKind = 'store' THEN s.storeName
+            WHEN f.promoKind = 'product' THEN pf.productName
+            WHEN f.promoKind = 'event' THEN ef.eventName
+            ELSE f.body
+        END AS feedTitle,
         COUNT(DISTINCT fl.userid) AS feedLikeCount,
         COUNT(DISTINCT r.reviewid) AS feedReviewCount,
         CASE WHEN EXISTS (
@@ -63,10 +69,12 @@ def get_feeds_details_by_market(db: Session, market_id: int, user_id: int, skip:
     FROM feed f
     JOIN store s ON f.storeid = s.storeid
     JOIN host h ON s.hostid = h.hostid
+    LEFT JOIN productfeed pf ON f.feedid = pf.feedid
+    LEFT JOIN eventfeed ef ON f.feedid = ef.feedid
     LEFT JOIN feedlike fl ON f.feedid = fl.feedid
     LEFT JOIN review r ON f.feedid = r.feedid
     WHERE s.marketid = :market_id
-    GROUP BY f.feedid, s.storeName, h.imgUrl, f.created_at, f.body, f.mediaUrl, f.promoKind
+    GROUP BY f.feedid, s.storeName, h.imgUrl, f.created_at, f.body, f.mediaUrl, f.promoKind, pf.productName, ef.eventName
     ORDER BY f.created_at DESC
     LIMIT :limit OFFSET :offset;
     """)

@@ -322,17 +322,13 @@ def get_feeds_by_market(
     # Process feeds_data to create FeedInfo objects
     feed_info_list = []
     for feed_item in feeds_data:
-        # Derive feedTitle from feedContent
-        feed_content = feed_item.feedContent if feed_item.feedContent else ""
-        feed_title = feed_content[:50] + "..." if len(feed_content) > 50 else feed_content
-
         feed_info_list.append(
             FeedInfo(
                 feedId=feed_item.feedId,
                 storeName=feed_item.storeName,
                 storeImageUrl=feed_item.storeImageUrl,
                 createdAt=feed_item.createdAt,
-                feedTitle=feed_title,
+                feedTitle=feed_item.feedTitle, # Use the title from the query
                 feedContent=feed_item.feedContent,
                 feedImageUrl=feed_item.feedImageUrl,
                 feedType=feed_item.feedType,
