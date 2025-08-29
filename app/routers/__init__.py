@@ -8,5 +8,6 @@ from .users import router as users_router
 from .markets import router as markets_router
 from .trends import router as trends_router
 from .videos import router as videos_router
+from .keywords import router as keywords_router
 
-__all__ = ["auth_router", "feeds_router", "stores_router", "users_router", "markets_router", "trends_router", "videos_router"]
+__all__ = ["auth_router", "feeds_router", "stores_router", "users_router", "markets_router", "trends_router", "videos_router", "keywords_router"]
