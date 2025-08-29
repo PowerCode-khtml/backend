@@ -17,7 +17,8 @@ from app.routers import (
     feeds_router,
     stores_router,
     # images_router, 
-    users_router
+    users_router,
+    markets_router
 )
 
 # 데이터베이스 테이블 생성
@@ -52,6 +53,7 @@ app.include_router(feeds_router, prefix="/api")  # 핵심 기능
 app.include_router(stores_router, prefix="/api")
 # app.include_router(images_router, prefix="/api")  # AI 특별 기능
 app.include_router(users_router, prefix="/api")
+app.include_router(markets_router, prefix="/api")
 
 # 홈 엔드포인트
 @app.get("/")
