@@ -216,54 +216,6 @@ def create_feed(
     
     return GenericResponse.success_response(db_feed)
 
-@router.get("/{market_id}/{user_id}", response_model=GenericResponse[FeedListResponse])
-def get_feeds_by_market(
-    market_id: int,
-    user_id: int,
-    skip: int = 0, 
-    limit: int = 50,
-    promo_kind: str = Query(None, description="피드 타입: store, product, event"),
-    db: Session = Depends(get_db)
-):
-    """특정 시장의 피드 목록 조회"""
-    feeds_data = feed_crud.get_feeds_details_by_market(db, market_id=market_id, user_id=user_id, skip=skip, limit=limit)
-    
-    # Process feeds_data to create FeedInfo objects
-    feed_info_list = []
-    for feed_item in feeds_data:
-        # Derive feedTitle from feedContent
-        feed_content = feed_item.feedContent if feed_item.feedContent else ""
-        feed_title = feed_content[:10] + "..." if len(feed_content) > 10 else feed_content
-
-        feed_info_list.append(
-            FeedInfo(
-                feedId=feed_item.feedId,
-                storeName=feed_item.storeName,
-                storeImageUrl=feed_item.storeImageUrl,
-                createdAt=feed_item.createdAt,
-                feedTitle=feed_title,
-                feedContent=feed_item.feedContent,
-                feedImageUrl=feed_item.feedImageUrl,
-                feedType=feed_item.feedType,
-                feedLikeCount=feed_item.feedLikeCount,
-                feedReviewCount=feed_item.feedReviewCount,
-                isLiked=feed_item.isLiked
-            )
-        )
-    
-    return GenericResponse.success_response(FeedListResponse(feedList=feed_info_list))
-
-@router.get("/{feed_id}", response_model=GenericResponse[FeedResponse])
-def get_feed(feed_id: int, db: Session = Depends(get_db)):
-    """특정 피드 상세 조회"""
-    feed = feed_crud.get_feed(db, feed_id=feed_id)
-    if feed is None:
-        return GenericResponse.error_response(
-            error_message="피드를 찾을 수 없습니다",
-            status_code=status.HTTP_404_NOT_FOUND
-        )
-    return GenericResponse.success_response(feed)
-
 @router.get("/stores/{store_id}", response_model=GenericResponse[List[FeedResponse]])
 def get_feeds_by_store(
     store_id: int, 
@@ -343,6 +295,54 @@ def get_feed_reviews(
     )
     
     return GenericResponse.success_response(response_data)
+
+@router.get("/{feed_id}", response_model=GenericResponse[FeedResponse])
+def get_feed(feed_id: int, db: Session = Depends(get_db)):
+    """특정 피드 상세 조회"""
+    feed = feed_crud.get_feed(db, feed_id=feed_id)
+    if feed is None:
+        return GenericResponse.error_response(
+            error_message="피드를 찾을 수 없습니다",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+    return GenericResponse.success_response(feed)
+
+@router.get("/{market_id}/{user_id}", response_model=GenericResponse[FeedListResponse])
+def get_feeds_by_market(
+    market_id: int,
+    user_id: int,
+    skip: int = 0, 
+    limit: int = 50,
+    promo_kind: str = Query(None, description="피드 타입: store, product, event"),
+    db: Session = Depends(get_db)
+):
+    """특정 시장의 피드 목록 조회"""
+    feeds_data = feed_crud.get_feeds_details_by_market(db, market_id=market_id, user_id=user_id, skip=skip, limit=limit)
+    
+    # Process feeds_data to create FeedInfo objects
+    feed_info_list = []
+    for feed_item in feeds_data:
+        # Derive feedTitle from feedContent
+        feed_content = feed_item.feedContent if feed_item.feedContent else ""
+        feed_title = feed_content[:50] + "..." if len(feed_content) > 50 else feed_content
+
+        feed_info_list.append(
+            FeedInfo(
+                feedId=feed_item.feedId,
+                storeName=feed_item.storeName,
+                storeImageUrl=feed_item.storeImageUrl,
+                createdAt=feed_item.createdAt,
+                feedTitle=feed_title,
+                feedContent=feed_item.feedContent,
+                feedImageUrl=feed_item.feedImageUrl,
+                feedType=feed_item.feedType,
+                feedLikeCount=feed_item.feedLikeCount,
+                feedReviewCount=feed_item.feedReviewCount,
+                isLiked=feed_item.isLiked
+            )
+        )
+    
+    return GenericResponse.success_response(FeedListResponse(feedList=feed_info_list))
 
 # --- AI 이미지 생성 기능 ---
 
