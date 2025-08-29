@@ -24,7 +24,7 @@ def recommend_market(request: RecommendRequest):
     사용자 선호도에 따른 맞춤 시장 추천
     """
     # JSON 파일의 절대 경로
-    json_path = "/home/teom142/goinfre/study/market/backend/data_all_cases.json"
+    json_path = "./data_all_cases.json"
 
     # recommend 서비스는 이제 자체적으로 DB 세션을 처리합니다.
     result = recommend.top1_from_file(
