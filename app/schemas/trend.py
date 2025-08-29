@@ -8,3 +8,12 @@ class StoreRankInfo(BaseModel):
 
 class StoreRankResponse(BaseModel):
     rankings: List[StoreRankInfo]
+
+class ProductRankInfo(BaseModel):
+    rank: int
+    mediaUrl: str | None
+    productName: str
+    like_count: int
+
+class ProductRankResponse(BaseModel):
+    rankings: List[ProductRankInfo]
